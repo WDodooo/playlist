@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Playlist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #181a2f;
+    --panel: #22254a;
+    --line: #34386b;
+    --text: #ece9f5;
+    --muted: #9a9cc4;
+    --accent: #ff6b8b;
+    --accent-ink: #2a0b14;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+    min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  .app {
+    max-width: 1040px;
+    margin: 0 auto;
+    padding: 32px 20px 48px;
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  @media (max-width: 800px) {
+    .app { grid-template-columns: 1fr; }
+  }
+
+  /* Player */
+  .player { position: sticky; top: 24px; }
+  @media (max-width: 800px) { .player { position: static; } }
+
+  .record {
+    width: 240px; height: 240px;
+    margin: 0 auto 28px;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at center, var(--accent) 0 17%, #101226 17.5% 19%, transparent 19.5%),
+      repeating-radial-gradient(circle at center, #0e1022 0 3px, #15182e 3px 6px);
+    box-shadow: 0 0 0 6px var(--panel), 0 20px 50px rgba(0,0,0,.45);
+    position: relative;
+    animation: spin 6s linear infinite;
+    animation-play-state: paused;
+  }
+  .record::after {
+    content: ""; position: absolute; inset: 0; border-radius: 50%;
+    background: conic-gradient(from 20deg, transparent 0 20%, rgba(255,255,255,.08) 25%, transparent 30% 70%, rgba(255,255,255,.08) 75%, transparent 80%);
+  }
+  .record.playing { animation-play-state: running; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .record { animation: none; } }
+
+  .now { text-align: center; min-height: 64px; }
+  .now h1 {
+    font-size: 22px; font-weight: 800; margin: 0 0 4px;
+    line-height: 1.2; overflow-wrap: anywhere;
+  }
+  .now p { margin: 0; color: var(--muted); font-size: 14px; }
+
+  .seek { display: flex; align-items: center; gap: 10px; margin: 20px 0 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    height: 6px; border-radius: 3px; background: var(--line); flex: 1; min-width: 0;
+    --fill: 0%;
+    background: linear-gradient(to right, var(--accent) var(--fill), var(--line) var(--fill));
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text); border: 0;
+  }
+  input[type=range]::-moz-range-thumb { width: 14px; height: 14px; border-radius: 50%; background: var(--text); border: 0; }
+
+  .controls { display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 12px; }
+  .ctl {
+    width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line);
+    background: transparent; display: grid; place-items: center;
+  }
+  .ctl:hover { background: var(--panel); }
+  .ctl svg { width: 20px; height: 20px; fill: currentColor; }
+  .ctl.toggle[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .ctl.main { width: 64px; height: 64px; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .ctl.main:hover { filter: brightness(1.08); background: var(--accent); }
+  .ctl.main svg { width: 28px; height: 28px; }
+  .loop-badge { position: relative; }
+  .loop-badge .one {
+    position: absolute; right: 7px; top: 7px; font-size: 10px; font-weight: 800;
+    display: none; line-height: 1;
+  }
+  .loop-badge[data-mode="one"] .one { display: block; }
+
+  .vol { display: flex; align-items: center; gap: 10px; margin-top: 22px; color: var(--muted); }
+  .vol svg { width: 18px; height: 18px; fill: currentColor; flex: none; }
+
+  /* List */
+  .list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .list-head h2 { margin: 0; font-size: 28px; font-weight: 800; }
+  .list-head span { color: var(--muted); font-size: 14px; }
+  .search {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--panel); color: var(--text); font: inherit; margin-bottom: 14px;
+  }
+  .search::placeholder { color: var(--muted); }
+
+  ul.tracks { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .tracks li { border-bottom: 1px solid var(--line); }
+  .track {
+    width: 100%; text-align: left; background: none; border: 0; padding: 14px 10px;
+    display: flex; align-items: center; gap: 14px; border-radius: 8px;
+  }
+  .track:hover { background: var(--panel); }
+  .track .idx { width: 24px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; flex: none; }
+  .track .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .track .ext { color: var(--muted); font-size: 12px; flex: none; }
+  .track.active { background: var(--panel); }
+  .track.active .name { color: var(--accent); font-weight: 600; }
+  .track.active .idx { color: var(--accent); }
+
+  .status { padding: 28px 10px; color: var(--muted); line-height: 1.5; }
+  .status code { background: var(--panel); padding: 2px 6px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <section class="player" aria-label="Player">
+    <div class="record" id="record"></div>
+
+    <div class="now" aria-live="polite">
+      <h1 id="title">Pick a song</h1>
+      <p id="sub">Choose a track from the list</p>
+    </div>
+
+    <div class="seek">
+      <span id="cur">0:00</span>
+      <input type="range" id="seek" min="0" max="100" step="0.1" value="0" aria-label="Seek">
+      <span id="dur">0:00</span>
+    </div>
+
+    <div class="controls">
+      <button class="ctl toggle" id="shuffle" aria-pressed="false" aria-label="Shuffle" title="Shuffle">
+        <svg viewBox="0 0 24 24"><path d="M17 3l4 4-4 4V8h-2.6l-3.3 4.1L8.9 15H6v-2h1.9l2-2.5L7.9 8H6V6h2.9l1.9 2.4L13.2 6H17V3zm0 10l4 4-4 4v-3h-3.8l-2.2-2.7 1.4-1.8 1.6 2H17v-3z"/></svg>
+      </button>
+      <button class="ctl" id="prev" aria-label="Previous" title="Previous">
+        <svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6L18 18V6z"/></svg>
+      </button>
+      <button class="ctl main" id="play" aria-label="Play" title="Play / pause">
+        <svg viewBox="0 0 24 24" id="playIcon"><path d="M8 5v14l11-7z"/></svg>
+      </button>
+      <button class="ctl" id="next" aria-label="Next" title="Next">
+        <svg viewBox="0 0 24 24"><path d="M16 6h2v12h-2zM6 18l8.5-6L6 6z"/></svg>
+      </button>
+      <button class="ctl toggle loop-badge" id="loop" aria-pressed="false" data-mode="off" aria-label="Loop: off" title="Loop: off">
+        <svg viewBox="0 0 24 24"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg>
+        <span class="one">1</span>
+      </button>
+    </div>
+    <div class="controls" style="margin-top:10px">
+      <button class="ctl" id="stop" aria-label="Stop" title="Stop" style="width:auto;border-radius:22px;padding:0 18px;gap:8px;display:flex">
+        <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg><span>Stop</span>
+      </button>
+    </div>
+
+    <div class="vol">
+      <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg>
+      <input type="range" id="vol" min="0" max="1" step="0.01" value="0.8" aria-label="Volume">
+    </div>
+  </section>
+
+  <section aria-label="Playlist">
+    <div class="list-head">
+      <h2>Playlist</h2>
+      <span id="count"></span>
+    </div>
+    <input class="search" id="search" type="search" placeholder="Search songs" aria-label="Search songs">
+    <ul class="tracks" id="tracks"></ul>
+    <div class="status" id="status">Loading songs from GitHub…</div>
+  </section>
+</div>
+
+<audio id="audio" preload="metadata"></audio>
+
+<script>
+/* ===== Settings: change these if your repo changes ===== */
+const OWNER  = "WDodooo";
+const REPO   = "playlist";
+const FOLDER = "playlist";   // the folder inside the repo
+const BRANCH = "main";
+const AUDIO_EXT = ["mp3", "aac", "m4a", "wav", "ogg", "oga", "opus", "flac", "weba", "webm"];
+/* ======================================================= */
+
+const $ = id => document.getElementById(id);
+const audio = $("audio");
+let tracks = [];       // {file, title, ext, urls[]}
+let current = -1;
+let shuffleOn = false;
+let loopMode = "off";  // off | all | one
+let shuffleQueue = [];
+let urlTry = 0;
+
+const enc = s => s.split("/").map(encodeURIComponent).join("/");
+
+function prettyName(file) {
+  return file
+    .replace(/\.[^.]+$/, "")
+    .replace(/\(mp3\.pm\)/gi, "")
+    .replace(/_-_/g, " - ")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function sourcesFor(path) {
+  return [
+    `https://raw.githubusercontent.com/${OWNER}/${REPO}/${BRANCH}/${enc(path)}`,
+    `https://cdn.jsdelivr.net/gh/${OWNER}/${REPO}@${BRANCH}/${enc(path)}`
+  ];
+}
+
+async function loadTracks() {
+  const api = `https://api.github.com/repos/${OWNER}/${REPO}/contents/${enc(FOLDER)}?ref=${BRANCH}`;
+  try {
+    const res = await fetch(api, { headers: { Accept: "application/vnd.github+json" } });
+    if (!res.ok) throw new Error(res.status === 403 ? "GitHub rate limit reached. Try again in a few minutes." : `GitHub returned ${res.status}. Check that the repo is public and the folder name is right.`);
+    const items = await res.json();
+    tracks = items
+      .filter(i => i.type === "file" && AUDIO_EXT.includes(i.name.split(".").pop().toLowerCase()))
+      .map(i => ({
+        file: i.name,
+        path: i.path,
+        title: prettyName(i.name),
+        ext: i.name.split(".").pop().toUpperCase(),
+        urls: sourcesFor(i.path)
+      }))
+      .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+    if (!tracks.length) {
+      $("status").innerHTML = `No audio files found in <code>${FOLDER}/</code>. Upload a song to the folder and reload.`;
+      return;
+    }
+    $("status").remove();
+    renderList();
+  } catch (e) {
+    $("status").textContent = e.message || "Couldn't load the song list.";
+  }
+}
+
+function renderList() {
+  const q = $("search").value.trim().toLowerCase();
+  const ul = $("tracks");
+  ul.innerHTML = "";
+  let shown = 0;
+  tracks.forEach((t, i) => {
+    if (q && !t.title.toLowerCase().includes(q)) return;
+    shown++;
+    const li = document.createElement("li");
+    const b = document.createElement("button");
+    b.className = "track" + (i === current ? " active" : "");
+    b.innerHTML = `<span class="idx">${i + 1}</span><span class="name"></span><span class="ext">${t.ext}</span>`;
+    b.querySelector(".name").textContent = t.title;
+    b.addEventListener("click", () => playIndex(i));
+    li.appendChild(b);
+    ul.appendChild(li);
+  });
+  $("count").textContent = q ? `${shown} of ${tracks.length} songs` : `${tracks.length} song${tracks.length === 1 ? "" : "s"}`;
+}
+
+function playIndex(i) {
+  if (i < 0 || i >= tracks.length) return;
+  current = i;
+  urlTry = 0;
+  audio.src = tracks[i].urls[0];
+  audio.play().catch(() => {});
+  $("title").textContent = tracks[i].title;
+  $("sub").textContent = `Track ${i + 1} of ${tracks.length}`;
+  document.title = tracks[i].title + " · My Playlist";
+  renderList();
+}
+
+function togglePlay() {
+  if (current === -1) {
+    if (!tracks.length) return;
+    playIndex(shuffleOn ? Math.floor(Math.random() * tracks.length) : 0);
+    return;
+  }
+  audio.paused ? audio.play() : audio.pause();
+}
+
+function stop() {
+  audio.pause();
+  audio.currentTime = 0;
+  updateUI();
+}
+
+function refillQueue() {
+  shuffleQueue = tracks.map((_, i) => i).filter(i => i !== current);
+  for (let i = shuffleQueue.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffleQueue[i], shuffleQueue[j]] = [shuffleQueue[j], shuffleQueue[i]];
+  }
+}
+
+function nextIndex(auto) {
+  if (!tracks.length) return -1;
+  if (shuffleOn) {
+    if (!shuffleQueue.length) {
+      if (auto && loopMode === "off" && tracks.length > 1 && shuffleQueue.__done) return -1;
+      refillQueue();
+    }
+    return shuffleQueue.length ? shuffleQueue.shift() : current;
+  }
+  const n = current + 1;
+  if (n >= tracks.length) return (loopMode === "all" || !auto) ? 0 : -1;
+  return n;
+}
+
+function next(auto = false) {
+  const n = nextIndex(auto);
+  if (n === -1) { stop(); return; }
+  playIndex(n);
+}
+
+function prev() {
+  if (audio.currentTime > 3) { audio.currentTime = 0; return; }
+  if (shuffleOn) { playIndex(Math.floor(Math.random() * tracks.length)); return; }
+  playIndex(current <= 0 ? tracks.length - 1 : current - 1);
+}
+
+function fmt(s) {
+  if (!isFinite(s)) return "0:00";
+  const m = Math.floor(s / 60), r = Math.floor(s % 60);
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function setFill(el) {
+  const pct = (el.value - el.min) / (el.max - el.min) * 100;
+  el.style.setProperty("--fill", pct + "%");
+}
+
+function updateUI() {
+  const playing = !audio.paused && !audio.ended;
+  $("record").classList.toggle("playing", playing);
+  $("playIcon").innerHTML = playing
+    ? '<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>'
+    : '<path d="M8 5v14l11-7z"/>';
+  $("play").setAttribute("aria-label", playing ? "Pause" : "Play");
+}
+
+audio.addEventListener("play", updateUI);
+audio.addEventListener("pause", updateUI);
+audio.addEventListener("ended", () => {
+  if (loopMode === "one") { audio.currentTime = 0; audio.play(); return; }
+  next(true);
+});
+audio.addEventListener("loadedmetadata", () => { $("dur").textContent = fmt(audio.duration); });
+audio.addEventListener("timeupdate", () => {
+  $("cur").textContent = fmt(audio.currentTime);
+  if (audio.duration) {
+    $("seek").value = audio.currentTime / audio.duration * 100;
+    setFill($("seek"));
+  }
+});
+audio.addEventListener("error", () => {
+  if (current === -1) return;
+  const t = tracks[current];
+  if (urlTry < t.urls.length - 1) {
+    urlTry++;
+    audio.src = t.urls[urlTry];
+    audio.play().catch(() => {});
+  } else {
+    $("sub").textContent = "This file can't be played in your browser. Try an MP3 or M4A.";
+  }
+});
+
+$("seek").addEventListener("input", e => {
+  setFill(e.target);
+  if (audio.duration) audio.currentTime = e.target.value / 100 * audio.duration;
+});
+$("vol").addEventListener("input", e => { audio.volume = e.target.value; setFill(e.target); });
+audio.volume = 0.8; setFill($("vol"));
+
+$("play").addEventListener("click", togglePlay);
+$("stop").addEventListener("click", stop);
+$("next").addEventListener("click", () => next(false));
+$("prev").addEventListener("click", prev);
+
+$("shuffle").addEventListener("click", e => {
+  shuffleOn = !shuffleOn;
+  shuffleQueue = [];
+  e.currentTarget.setAttribute("aria-pressed", shuffleOn);
+  e.currentTarget.title = "Shuffle: " + (shuffleOn ? "on" : "off");
+});
+
+$("loop").addEventListener("click", e => {
+  const modes = ["off", "all", "one"];
+  loopMode = modes[(modes.indexOf(loopMode) + 1) % 3];
+  const b = e.currentTarget;
+  b.dataset.mode = loopMode;
+  b.setAttribute("aria-pressed", loopMode !== "off");
+  const label = { off: "Loop: off", all: "Loop: all songs", one: "Loop: this song" }[loopMode];
+  b.setAttribute("aria-label", label);
+  b.title = label;
+});
+
+$("search").addEventListener("input", renderList);
+
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT" && e.target.type === "search") return;
+  if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+  if (e.code === "ArrowRight" && e.shiftKey) next(false);
+  if (e.code === "ArrowLeft" && e.shiftKey) prev();
+});
+
+loadTracks();
+</script>
+</body>
+</html>
