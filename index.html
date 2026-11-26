@@ -69,15 +69,32 @@ li.cur .n{background:var(--pink);color:#fff}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:.88rem;transition:.3s;opacity:0}
 #toast.show{transform:translateX(-50%);opacity:1}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+[hidden]{display:none!important}
+.right{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.nav{display:flex;background:var(--card);border:1px solid var(--line);border-radius:99px;padding:4px;gap:2px}
+.nav a{padding:8px 18px;border-radius:99px;color:var(--mute);text-decoration:none;font-weight:700;font-size:.88rem;transition:.15s}
+.nav a:hover{color:var(--pink)}
+.nav a[aria-current=page]{background:var(--pink);color:#fff;box-shadow:0 4px 12px rgba(255,79,147,.35)}
+.nav a:focus-visible,.addlink:focus-visible,.back:focus-visible,#mini a:focus-visible{outline:3px solid var(--pink2);outline-offset:2px}
+.qh{gap:12px;align-items:center}.qh h2{flex:1}
+.addlink{background:var(--soft);color:var(--pink);font-weight:700;font-size:.85rem;padding:8px 14px;border-radius:99px;text-decoration:none;transition:.15s}
+.addlink:hover{background:var(--pink);color:#fff}
+.addcard{max-width:640px;margin:0 auto}.addcard h2{font-family:Fraunces,serif;font-size:1.7rem}.addcard .sub{margin:4px 0 20px}
+.back{display:inline-block;color:var(--mute);text-decoration:none;font-weight:500;font-size:.9rem}.back:hover{color:var(--pink)}
+#mini{position:fixed;left:50%;transform:translateX(-50%);bottom:16px;width:min(560px,calc(100% - 24px));display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:10px 12px;z-index:5}
+#mini .mt{flex:1;min-width:0;display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit}
+#mini .art2{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--pink2),var(--pink));color:#fff;display:grid;place-items:center;font-family:Fraunces,serif;font-weight:800;flex:none}
+#mini .tx{min-width:0}#mini b,#mini small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#mini small{color:var(--mute);font-size:.8rem}
+body.hasmini{padding-bottom:110px}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
     <div><h1>Playlist <em>Kita</em></h1><p class="sub">One playlist, everyone listening together.</p></div>
-    <div class="live"><span class="dot off" id="dot"></span><span id="liveT">Demo mode</span></div>
+    <div class="right"><nav class="nav" aria-label="Pages"><a href="#" id="nL">Playlist</a><a href="#add" id="nA">Add music</a></nav><div class="live"><span class="dot off" id="dot"></span><span id="liveT">Demo mode</span></div></div>
   </header>
-  <div class="grid">
+  <main class="grid" id="pgList">
     <section class="card player" aria-label="Player">
       <div class="art" id="art">♪</div>
       <div id="nowT">Nothing playing</div><div id="nowA">Pick a song from the queue</div>
@@ -94,6 +111,13 @@ li.cur .n{background:var(--pink);color:#fff}
       <div class="vol"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4z"/></svg><input type="range" id="vol" min="0" max="1" step="0.01" value="0.8" aria-label="Volume"></div>
     </section>
     <section class="card" aria-label="Queue">
+            <div class="qh"><h2>Up next</h2><span id="count">0 songs</span><a class="addlink" href="#add">+ Add music</a></div>
+      <ul id="list"></ul>
+    </section>
+  </main>
+  <main id="pgAdd" hidden>
+    <section class="card addcard" aria-label="Add music">
+      <h2>Add music</h2><p class="sub">Upload a file or paste a link. It joins the shared playlist right away.</p>
       <form id="form">
         <input type="text" id="fT" placeholder="Song title" maxlength="80">
         <input type="text" id="fA" placeholder="Artist" maxlength="80">
@@ -101,11 +125,11 @@ li.cur .n{background:var(--pink);color:#fff}
         <input type="url" id="fU" class="full" placeholder="Or paste a direct audio link (https://…/song.mp3)">
         <button class="add full" type="submit">Add to playlist</button>
       </form>
-      <div class="qh"><h2>Up next</h2><span id="count">0 songs</span></div>
-      <ul id="list"></ul>
+      <a class="back" href="#">&larr; Back to playlist</a>
     </section>
-  </div>
+  </main>
 </div>
+<div id="mini" hidden><a class="mt" href="#" aria-label="Back to playlist"><div class="art2" id="mA">♪</div><div class="tx"><b id="mT"></b><small id="mS"></small></div></a><button class="ic" id="mPlay" title="Play / Pause" aria-label="Play or pause"></button><button class="ic" id="mNext" title="Next" aria-label="Next"></button></div>
 <div id="toast" role="status"></div>
 <script>
 /* ---- 1. Paste your Supabase project values here (Project Settings > API) ---- */
@@ -150,6 +174,7 @@ const idx=()=>songs.findIndex(s=>s.id===curId);
 const cur=()=>songs.find(s=>s.id===curId);
 
 function icons(){
+  $('mPlay').innerHTML=au.paused?P.play:P.pause;$('mNext').innerHTML=P.next;
   $('play').innerHTML=au.paused?P.play:P.pause;$('next').innerHTML=P.next;$('prev').innerHTML=P.prev;$('stop').innerHTML=P.stop;$('shuf').innerHTML=P.shuf;
   $('loop').innerHTML=loop==='one'?P.loop1:P.loop;
   $('shuf').classList.toggle('on',shuffle);$('loop').classList.toggle('on',loop!=='off');
@@ -158,10 +183,10 @@ function icons(){
 function render(){
   const s=cur();
   $('nowT').textContent=s?s.title:'Nothing playing';$('nowA').textContent=s?(s.artist||'Unknown artist'):'Pick a song from the queue';
-  $('art').textContent=s?s.title.trim().charAt(0).toUpperCase():'♪';$('art').classList.toggle('spin',!!s&&!au.paused);
+  $('art').textContent=s?s.title.trim().charAt(0).toUpperCase():'♪';$('art').classList.toggle('spin',!!s&&!au.paused);updMini();
   $('count').textContent=songs.length+(songs.length===1?' song':' songs');
   const ul=$('list');ul.innerHTML='';
-  if(!songs.length){ul.innerHTML='<div class="empty">Your queue is empty. Add a song above to get started.</div>';icons();return}
+  if(!songs.length){ul.innerHTML='<div class="empty">Your playlist is empty. <a href="#add" style="color:var(--pink);font-weight:700">Add the first song</a>.</div>';icons();return}
   songs.forEach((song,i)=>{
     const li=document.createElement('li');li.draggable=true;li.dataset.id=song.id;
     if(song.id===curId){li.className='cur'+(au.paused?' paused':'')}
@@ -207,6 +232,7 @@ let seeking=false;
 $('seek').oninput=e=>{seeking=true;e.target.style.setProperty('--p',e.target.value+'%');if(au.duration)$('tc').textContent=fmt(e.target.value/100*au.duration)};
 $('seek').onchange=e=>{if(au.duration)au.currentTime=e.target.value/100*au.duration;seeking=false};
 $('vol').oninput=e=>{au.volume=e.target.value;e.target.style.setProperty('--p',e.target.value*100+'%')};$('vol').style.setProperty('--p','80%');
+$('mPlay').onclick=toggle;$('mNext').onclick=()=>next(false);
 $('play').onclick=toggle;$('stop').onclick=stop;$('next').onclick=()=>next(false);$('prev').onclick=prev;
 $('shuf').onclick=()=>{shuffle=!shuffle;icons();toast('Shuffle '+(shuffle?'on':'off'))};
 $('loop').onclick=()=>{loop={off:'all',all:'one',one:'off'}[loop];icons();toast({off:'Loop off',all:'Looping the playlist',one:'Looping this song'}[loop])};
@@ -276,7 +302,24 @@ if(live){
     .subscribe(async st=>{if(st==='SUBSCRIBED'){$('dot').classList.remove('off');await chan.track({at:Date.now()})}});
   $('liveT').textContent='Connecting…';
 }
-icons();refresh();
+/* pages */
+function updMini(){
+  const s=cur(),add=location.hash==='#add';
+  $('mT').textContent=s?s.title:'';$('mS').textContent=s?(s.artist||'Unknown artist'):'';
+  $('mA').textContent=s?s.title.trim().charAt(0).toUpperCase():'♪';
+  const show=add&&!!s;$('mini').hidden=!show;document.body.classList.toggle('hasmini',show);
+}
+function route(focus){
+  const add=location.hash==='#add';
+  $('pgList').hidden=add;$('pgAdd').hidden=!add;
+  $('nL').toggleAttribute('aria-current',!add);$('nA').toggleAttribute('aria-current',add);
+  if(!add)$('nL').setAttribute('aria-current','page');else $('nA').setAttribute('aria-current','page');
+  document.title=add?'Add music · Playlist Kita':'Playlist Kita';
+  updMini();window.scrollTo(0,0);
+  if(add&&focus)$('fT').focus({preventScroll:true});
+}
+window.addEventListener('hashchange',()=>route(true));
+route();icons();refresh();
 </script>
 </body>
 </html>
