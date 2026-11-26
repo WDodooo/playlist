@@ -86,6 +86,21 @@ li.cur .n{background:var(--pink);color:#fff}
 #mini .art2{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--pink2),var(--pink));color:#fff;display:grid;place-items:center;font-family:Fraunces,serif;font-weight:800;flex:none}
 #mini .tx{min-width:0}#mini b,#mini small{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#mini small{color:var(--mute);font-size:.8rem}
 body.hasmini{padding-bottom:110px}
+/* page transitions */
+.enter{animation:pageIn .5s cubic-bezier(.2,.8,.2,1) both}
+.leave{animation:pageOut .22s cubic-bezier(.4,0,1,1) both}
+.fromR,.toR{--x:48px}.fromL,.toL{--x:-48px}
+@keyframes pageIn{from{opacity:0;transform:translateX(var(--x,0)) scale(.985);filter:blur(4px)}}
+@keyframes pageOut{to{opacity:0;transform:translateX(var(--x,0)) scale(.985);filter:blur(4px)}}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+.enter>*,.enter .addcard>*{animation:rise .55s cubic-bezier(.2,.8,.2,1) both}
+.enter>:nth-child(2),.enter .addcard>:nth-child(2){animation-delay:.07s}
+.enter .addcard>:nth-child(3){animation-delay:.14s}.enter .addcard>:nth-child(4){animation-delay:.21s}
+#mini:not([hidden]){animation:miniIn .45s cubic-bezier(.2,.8,.2,1)}
+@keyframes miniIn{from{opacity:0;transform:translateX(-50%) translateY(28px) scale(.96)}}
+#tbar{position:fixed;top:0;left:0;height:3px;width:100%;background:linear-gradient(90deg,var(--pink2),var(--pink));transform:scaleX(0);transform-origin:left;z-index:20;pointer-events:none}
+#tbar.go{animation:tbar .7s ease-out}
+@keyframes tbar{0%{transform:scaleX(0);opacity:1}65%{transform:scaleX(1);opacity:1}100%{transform:scaleX(1);opacity:0}}
 </style>
 </head>
 <body>
@@ -130,6 +145,7 @@ body.hasmini{padding-bottom:110px}
   </main>
 </div>
 <div id="mini" hidden><a class="mt" href="#" aria-label="Back to playlist"><div class="art2" id="mA">♪</div><div class="tx"><b id="mT"></b><small id="mS"></small></div></a><button class="ic" id="mPlay" title="Play / Pause" aria-label="Play or pause"></button><button class="ic" id="mNext" title="Next" aria-label="Next"></button></div>
+<div id="tbar"></div>
 <div id="toast" role="status"></div>
 <script>
 /* ---- 1. Paste your Supabase project values here (Project Settings > API) ---- */
@@ -309,14 +325,30 @@ function updMini(){
   $('mA').textContent=s?s.title.trim().charAt(0).toUpperCase():'♪';
   const show=add&&!!s;$('mini').hidden=!show;document.body.classList.toggle('hasmini',show);
 }
+let page=null,tok=0;
 function route(focus){
-  const add=location.hash==='#add';
-  $('pgList').hidden=add;$('pgAdd').hidden=!add;
+  const add=location.hash==='#add',nx=add?$('pgAdd'):$('pgList'),pv=add?$('pgList'):$('pgAdd');
   $('nL').toggleAttribute('aria-current',!add);$('nA').toggleAttribute('aria-current',add);
-  if(!add)$('nL').setAttribute('aria-current','page');else $('nA').setAttribute('aria-current','page');
+  $(add?'nA':'nL').setAttribute('aria-current','page');
   document.title=add?'Add music · Playlist Kita':'Playlist Kita';
-  updMini();window.scrollTo(0,0);
-  if(add&&focus)$('fT').focus({preventScroll:true});
+  const first=page===null,same=page===add,t=++tok;page=add;
+  const calm=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  [nx,pv].forEach(el=>el.classList.remove('enter','leave','fromL','fromR','toL','toR'));
+  const show=()=>{
+    if(t!==tok)return;
+    pv.hidden=true;nx.hidden=false;
+    if(!first&&!same&&!calm){
+      nx.classList.add('enter',add?'fromR':'fromL');
+      setTimeout(()=>{if(t===tok)nx.classList.remove('enter','fromL','fromR')},800);
+    }
+    updMini();window.scrollTo(0,0);
+    if(add&&focus)$('fT').focus({preventScroll:true});
+  };
+  if(!first&&!same&&!calm){
+    const b=$('tbar');b.classList.remove('go');void b.offsetWidth;b.classList.add('go');
+  }
+  if(first||same||calm||pv.hidden)show();
+  else{pv.classList.add('leave',add?'toL':'toR');setTimeout(show,220)}
 }
 window.addEventListener('hashchange',()=>route(true));
 route();icons();refresh();
