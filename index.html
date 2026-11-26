@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Blush Radio · Shared Playlist</title>
+<title>Playlist Kita</title>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,800;1,600&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <style>
@@ -66,7 +66,6 @@ li.cur .n{background:var(--pink);color:#fff}
 .meta small{color:var(--mute);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .del{opacity:.5}.del:hover{opacity:1;color:#e11d48}
 .empty{text-align:center;color:var(--mute);padding:36px 12px}
-.banner{background:var(--soft);border:1px dashed var(--pink2);border-radius:16px;padding:12px 16px;font-size:.85rem;margin-bottom:16px;display:none}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(80px);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:99px;font-size:.88rem;transition:.3s;opacity:0}
 #toast.show{transform:translateX(-50%);opacity:1}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
@@ -75,10 +74,9 @@ li.cur .n{background:var(--pink);color:#fff}
 <body>
 <div class="wrap">
   <header>
-    <div><h1>Blush <em>Radio</em></h1><p class="sub">One playlist, everyone listening together.</p></div>
+    <div><h1>Playlist <em>Kita</em></h1><p class="sub">One playlist, everyone listening together.</p></div>
     <div class="live"><span class="dot off" id="dot"></span><span id="liveT">Demo mode</span></div>
   </header>
-  <div class="banner" id="banner">Running in demo mode: songs are saved only in this browser. Add your Supabase URL and anon key at the top of the script to share the playlist with everyone.</div>
   <div class="grid">
     <section class="card player" aria-label="Player">
       <div class="art" id="art">♪</div>
@@ -140,7 +138,7 @@ if(live){
     add:async s=>{mem.push({...s,id:'l'+Date.now()});wr(mem)},
     remove:async id=>{mem=mem.filter(s=>s.id!==id);wr(mem)},
     move:async(id,p)=>{mem.find(s=>s.id===id).position=p;wr(mem)}};
-  $('banner').style.display='block';
+  
 }
 
 /* state */
