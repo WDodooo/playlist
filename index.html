@@ -213,10 +213,17 @@ dialog::backdrop{background:rgba(59,22,38,.45);backdrop-filter:blur(4px)}
 <div id="tbar"></div>
 <div id="toast" role="status"></div>
 <script>
-/* ---- 1. Paste your Supabase project values here (Project Settings > API) ---- */
-const SUPABASE_URL = 'sb_publishable_n2wn4QwMCDl9sBxTHsBmHw_6ir2ro9g';
-const SUPABASE_KEY = 'sb_publishable_n2wn4QwMCDl9sBxTHsBmHw_6ir2ro9g';
-/* ---------------------------------------------------------------------------- */
+/* ================= SETTINGS: paste your Supabase values between the quotes ================= */
+window.KITA_CONFIG = {
+  url: '',   // Project URL, like https://abcdxyz.supabase.co
+  key: ''    // Publishable key, starts with sb_publishable_
+};
+/* =========================================================================================== */
+</script>
+<script>
+window.addEventListener('error',e=>{const t=document.getElementById('toast');if(t){t.textContent='Error: '+e.message;t.classList.add('show')}});
+const CFG=window.KITA_CONFIG||{};
+const SUPABASE_URL=String(CFG.url||'').trim().replace(/\/+$/,''),SUPABASE_KEY=String(CFG.key||'').trim();
 const $=id=>document.getElementById(id);
 const P={play:'<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>',pause:'<svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
 next:'<svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>',prev:'<svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>',
@@ -227,10 +234,16 @@ x:'<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="
 const DEMO=[['Sunny Day Drive','SoundHelix','https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3'],['Candy Floss','SoundHelix','https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3'],['Late Night Pink','SoundHelix','https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3']];
 
 /* data layer: Supabase when configured, otherwise localStorage demo */
-const live=!!(SUPABASE_URL&&SUPABASE_KEY);
+let live=!!(SUPABASE_URL&&SUPABASE_KEY),initErr='';
+if(!live&&(SUPABASE_URL||SUPABASE_KEY))initErr='Both the URL and the key are needed';
+if(!window.KITA_CONFIG)initErr='The settings block at the top of the file is broken';
 let sb,chan,api;
-if(live){
+if(live){try{
+  if(typeof supabase==='undefined')throw new Error('The Supabase library did not load');
+  if(!/^https?:\/\//.test(SUPABASE_URL))throw new Error('The URL must start with https://');
   sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+}catch(e){live=false;initErr=e.message}}
+if(live){
   const setItems=async(pid,ids)=>{let r=await sb.from('playlist_songs').delete().eq('playlist_id',pid);if(r.error)throw r.error;
     if(ids.length){r=await sb.from('playlist_songs').insert(ids.map((song_id,i)=>({playlist_id:pid,song_id,position:i})));if(r.error)throw r.error}};
   api={
@@ -259,6 +272,7 @@ if(live){
   
 }
 
+if(initErr){$('liveT').textContent='Settings error';setTimeout(()=>toast('Not connected to Supabase: '+initErr),700)}
 /* state */
 let songs=[],curId=null,loop='off',shuffle=false,history=[],ctx=null,pls=[],plErr=false,loaded=false,viewPl=null;
 const au=new Audio();au.preload='metadata';au.volume=.8;
@@ -297,7 +311,7 @@ function render(){
     li.append(n,m,d);ul.append(li);
   });icons();
 }
-async function refresh(){try{songs=await api.list();pls=await api.plists();loaded=true;if(ctx&&!pls.some(p=>p.id===ctx))ctx=null;if(curId&&!cur()){au.pause();au.removeAttribute('src');curId=null}render();renderPl()}catch(e){toast('Could not load songs: '+e.message)}}
+async function refresh(){try{songs=await api.list();pls=await api.plists();loaded=true;if(ctx&&!pls.some(p=>p.id===ctx))ctx=null;if(curId&&!cur()){au.pause();au.removeAttribute('src');curId=null}render();renderPl()}catch(e){if(live){$('liveT').textContent='Connection problem';$('dot').classList.add('off')}toast('Could not load songs: '+e.message)}}
 
 /* playback */
 function start(id,noHist){
