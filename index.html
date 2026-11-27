@@ -339,7 +339,15 @@ function render(){
   if(page==='pl')renderDetail();
   $('count').textContent=songs.length+(songs.length===1?' song':' songs');
   const ul=$('list');ul.innerHTML='';
-  if(!songs.length){ul.innerHTML='<div class="empty">Your playlist is empty. <a href="#add" style="color:var(--pink);font-weight:700">Add the first song</a>.</div>';icons();return}
+  if(!songs.length){
+    const d=document.createElement('div');d.className='empty';
+    if(loadErr){
+      const sm=document.createElement('small');sm.style.cssText='display:block;margin:6px 0 12px';sm.textContent=loadErr;
+      const rb=document.createElement('button');rb.type='button';rb.className='pill';rb.textContent='Try again';rb.onclick=refresh;
+      d.append('Could not load your songs.',sm,rb);
+    }else if(!loaded)d.textContent='Loading…';
+    else d.innerHTML='Your playlist is empty. <a href="#add" style="color:var(--pink);font-weight:700">Add the first song</a>.'+(live?'<small style="display:block;margin-top:8px">Connected to your database. It has no songs yet.</small>':'');
+    ul.append(d);icons();return}
   songs.forEach((song,i)=>{
     const li=document.createElement('li');li.draggable=true;li.dataset.id=song.id;
     if(song.id===curId){li.className='cur'+(au.paused?' paused':'')}
@@ -353,7 +361,21 @@ function render(){
     li.append(n,m,d);ul.append(li);
   });icons();
 }
-async function refresh(){try{songs=await api.list();pls=await api.plists();loaded=true;if(live&&bad){bad=false;$('liveT').textContent=lt;$('dot').classList.remove('off')}if(ctx&&!pls.some(p=>p.id===ctx))ctx=null;if(curId&&!cur()){au.pause();au.removeAttribute('src');curId=null}render();renderPl()}catch(e){if(live){bad=true;$('liveT').textContent='Connection problem';$('dot').classList.add('off')}toast('Could not load: '+e.message)}}
+let loadErr='';
+async function refresh(){
+  let err=null;
+  try{songs=await api.list()}catch(e){err=e}
+  try{pls=await api.plists()}catch(e){err=err||e}
+  loaded=true;loadErr=err?(err.message||String(err)):'';
+  if(live){
+    if(err){bad=true;$('liveT').textContent='Connection problem';$('dot').classList.add('off')}
+    else if(bad){bad=false;$('liveT').textContent=lt;$('dot').classList.remove('off')}
+  }
+  if(err)toast('Could not load: '+loadErr);
+  if(ctx&&!pls.some(p=>p.id===ctx))ctx=null;
+  if(curId&&!cur()){au.pause();au.removeAttribute('src');curId=null}
+  render();renderPl();
+}
 
 /* playback */
 function start(id,noHist){
@@ -408,14 +430,14 @@ dz.ondragleave=()=>dz.classList.remove('over');
 dz.ondrop=e=>{e.preventDefault();dz.classList.remove('over');pickFile(e.dataTransfer.files[0])};
 $('form').onsubmit=async e=>{
   e.preventDefault();
-  let url=$('fU').value.trim(),title=$('fT').value.trim(),tmp=false;
+  let url=$('fU').value.trim(),title=$('fT').value.trim(),tmp=false,upPath=null;
   if(!file&&!url)return toast('Choose an audio file or paste a link.');
   const btn=e.target.querySelector('.add');btn.disabled=true;
   try{
     if(file){
       btn.textContent='Uploading…';
       if(live){
-        const path=Date.now()+'-'+file.name.replace(/[^\w.-]+/g,'_');
+        const path=Date.now()+'-'+file.name.replace(/[^\w.-]+/g,'_');upPath=path;
         const{error}=await sb.storage.from('songs').upload(path,file,{contentType:file.type||'audio/mpeg'});
         if(error)throw error;
         url=sb.storage.from('songs').getPublicUrl(path).data.publicUrl;
@@ -426,7 +448,7 @@ $('form').onsubmit=async e=>{
     const row={title,artist:$('fA').value.trim(),url,position:last+1};if(tmp)row.tmp=true;
     await api.add(row);e.target.reset();resetFile();
     toast(tmp?'Added "'+title+'" (kept until you refresh in demo mode)':'Added "'+title+'"');await refresh();
-  }catch(err){toast('Could not add song: '+err.message)}
+  }catch(err){if(upPath&&live)sb.storage.from('songs').remove([upPath]).catch(()=>{});toast('Could not add song: '+err.message)}
   finally{btn.disabled=false;btn.textContent='Add to playlist'}
 };
 async function removeSong(id){
@@ -655,7 +677,7 @@ $('cvSave').onclick=async()=>{
   finally{btn.disabled=false;btn.textContent='Save cover'}
 };
 window.addEventListener('hashchange',()=>route(true));
-route();icons();refresh();
+route();icons();render();refresh();
 </script>
 </body>
 </html>
