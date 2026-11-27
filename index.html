@@ -276,8 +276,12 @@ if(live){try{
   sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 }catch(e){live=false;initErr=e.message}}
 if(live){
-  const setItems=async(pid,ids)=>{let r=await sb.from('playlist_songs').delete().eq('playlist_id',pid);if(r.error)throw r.error;
-    if(ids.length){r=await sb.from('playlist_songs').insert(ids.map((song_id,i)=>({playlist_id:pid,song_id,position:i})));if(r.error)throw r.error}};
+  const setItems=async(pid,ids)=>{
+    if(ids.length){const r=await sb.from('playlist_songs').upsert(ids.map((song_id,i)=>({playlist_id:pid,song_id,position:i})),{onConflict:'playlist_id,song_id'});if(r.error)throw r.error}
+    let q=sb.from('playlist_songs').delete().eq('playlist_id',pid);
+    if(ids.length)q=q.not('song_id','in','('+ids.join(',')+')');
+    const d=await q;if(d.error)throw d.error;
+  };
   api={
     list:async()=>{const{data,error}=await sb.from('songs').select('*').order('position');if(error)throw error;return data},
     add:async s=>{const{error}=await sb.from('songs').insert(s);if(error)throw error},
@@ -285,7 +289,7 @@ if(live){
     move:async(id,position)=>{const{error}=await sb.from('songs').update({position}).eq('id',id);if(error)throw error},
     plists:async()=>{try{const[a,b]=await Promise.all([sb.from('playlists').select('*').order('created_at'),sb.from('playlist_songs').select('*').order('position')]);
       if(a.error)throw a.error;if(b.error)throw b.error;plErr=false;
-      return a.data.map(p=>({...p,songIds:b.data.filter(r=>r.playlist_id===p.id).map(r=>r.song_id)}))}catch(e){plErr=true;return []}},
+      return a.data.map(p=>({...p,songIds:b.data.filter(r=>r.playlist_id===p.id).map(r=>r.song_id)}))}catch(e){if(/42P01|PGRST205|PGRST200|does not exist|schema cache/i.test((e.code||'')+' '+(e.message||''))){plErr=true;return []}throw e}},
     createPl:async(name,ids)=>{const{data,error}=await sb.from('playlists').insert({name}).select('id').single();if(error)throw error;await setItems(data.id,ids);return data.id},
     updatePl:async(id,name,ids)=>{const{error}=await sb.from('playlists').update({name}).eq('id',id);if(error)throw error;await setItems(id,ids)},
     deletePl:async id=>{const{data}=await sb.from('playlists').select('cover').eq('id',id).maybeSingle();const{error}=await sb.from('playlists').delete().eq('id',id);if(error)throw error;if(data&&data.cover)api.dropCover(data.cover).catch(()=>{})},
@@ -312,7 +316,7 @@ if(live){
 
 if(initErr){$('liveT').textContent='Settings error';setTimeout(()=>toast('Not connected to Supabase: '+initErr),700)}
 /* state */
-let songs=[],curId=null,loop='off',shuffle=false,history=[],ctx=null,pls=[],plErr=false,loaded=false,viewPl=null;
+let songs=[],curId=null,loop='off',shuffle=false,history=[],ctx=null,pls=[],plErr=false,loaded=false,viewPl=null,bad=false,lt='Connecting…';
 const au=new Audio();au.preload='metadata';au.volume=.8;
 const fmt=t=>isFinite(t)?Math.floor(t/60)+':'+String(Math.floor(t%60)).padStart(2,'0'):'0:00';
 const toast=m=>{const t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove('show'),2600)};
@@ -349,7 +353,7 @@ function render(){
     li.append(n,m,d);ul.append(li);
   });icons();
 }
-async function refresh(){try{songs=await api.list();pls=await api.plists();loaded=true;if(ctx&&!pls.some(p=>p.id===ctx))ctx=null;if(curId&&!cur()){au.pause();au.removeAttribute('src');curId=null}render();renderPl()}catch(e){if(live){$('liveT').textContent='Connection problem';$('dot').classList.add('off')}toast('Could not load songs: '+e.message)}}
+async function refresh(){try{songs=await api.list();pls=await api.plists();loaded=true;if(live&&bad){bad=false;$('liveT').textContent=lt;$('dot').classList.remove('off')}if(ctx&&!pls.some(p=>p.id===ctx))ctx=null;if(curId&&!cur()){au.pause();au.removeAttribute('src');curId=null}render();renderPl()}catch(e){if(live){bad=true;$('liveT').textContent='Connection problem';$('dot').classList.add('off')}toast('Could not load: '+e.message)}}
 
 /* playback */
 function start(id,noHist){
@@ -450,7 +454,7 @@ if(live){
     .on('postgres_changes',{event:'*',schema:'public',table:'songs'},()=>refresh())
     .on('postgres_changes',{event:'*',schema:'public',table:'playlists'},()=>refresh())
     .on('postgres_changes',{event:'*',schema:'public',table:'playlist_songs'},()=>refresh())
-    .on('presence',{event:'sync'},()=>{const n=Object.keys(chan.presenceState()).length;$('liveT').textContent=n+(n===1?' listener online':' listeners online')})
+    .on('presence',{event:'sync'},()=>{const n=Object.keys(chan.presenceState()).length;lt=n+(n===1?' listener online':' listeners online');if(!bad)$('liveT').textContent=lt})
     .subscribe(async st=>{if(st==='SUBSCRIBED'){$('dot').classList.remove('off');await chan.track({at:Date.now()})}});
   $('liveT').textContent='Connecting…';
 }
